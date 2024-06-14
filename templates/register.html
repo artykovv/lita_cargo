@@ -1,0 +1,108 @@
+{% extends "base.html" %} {% block content %}
+
+<div class="container rounded text-body-emphasis bg-white shadow-sm p-5">
+  <form id="registration-form">
+    <h5 сlass="mb-5">Регистрация клиента</h5>
+    <label for="name">Имя:</label>
+    <input
+      class="form-control"
+      type="text"
+      placeholder="ФИО клиента"
+      aria-label=".form-control-lg example"
+      id="name"
+      name="name"
+      required
+    />
+    <label for="number">Контакт:</label>
+    <input
+      class="form-control"
+      type="text"
+      placeholder="Номер телефона клиента"
+      aria-label=".form-control-lg example"
+      id="number"
+      name="number"
+      required
+    />
+
+    <label for="city">Город:</label>
+    <input
+      class="form-control"
+      type="text"
+      placeholder="Номер телефона клиента"
+      aria-label=".form-control-lg example"
+      id="text"
+      name="city"
+      required
+    />
+
+    <button class="btn btn-success mt-5" type="submit">Зарегистрировать</button>
+  </form>
+</div>
+
+<div id="result"></div>
+
+<script>
+  document
+    .getElementById('registration-form')
+    .addEventListener('submit', async function (event) {
+      event.preventDefault();
+
+      const formData = new FormData(event.target);
+      const data = {
+        name: formData.get('name'),
+        number: formData.get('number'),
+        city: formData.get('city'),
+      };
+
+      try {
+        const response = await fetch(
+          '/api/v1/routes/register',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+          }
+        );
+
+        if (response.ok) {
+          const result = await response.json();
+          document.getElementById('result').innerHTML = `
+          <div class="container rounded text-body-emphasis bg-white p-5 shadow mt-5">
+                <p>Клиент зарегистрирован:</p>
+
+                <table class="table">
+                    <thead>
+                        <tr>
+                        <th scope="">Имя</th>
+                        <th scope="col">Контакт</th>
+                        <th scope="col">Город</th>
+                        <th scope="col">Код клиента</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>${result.client.name}</td>
+                            <td>${result.client.number}</td>
+                            <td>${result.client.city}</td>
+                            <td>${result.client.id}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            `;
+        } else {
+          const error = await response.json();
+          document.getElementById(
+            'result'
+          ).innerHTML = `<p>Ошибка: ${error.detail}</p>`;
+        }
+      } catch (error) {
+        document.getElementById(
+          'result'
+        ).innerHTML = `<p>Ошибка: ${error.message}</p>`;
+      }
+    });
+</script>
+{% endblock %}

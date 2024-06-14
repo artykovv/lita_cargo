@@ -1,0 +1,102 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+    margin: 0;
+    padding: 0;
+}
+
+
+
+nav ul {
+    list-style-type: none;
+    padding: 0;
+    text-align: center;
+}
+
+nav li {
+    display: inline;
+    margin: 0 10px;
+}
+
+nav a {
+    color: #ffffff;
+    text-decoration: none;
+}
+
+main {
+    padding: 20px;
+}
+
+footer {
+    background-color: #343a40;
+    color: #ffffff;
+    text-align: center;
+    padding: 20px 0;
+}
+
+
+label {
+    margin-top: 10px;
+}
+
+input, button {
+    margin-top: 5px;
+}
+
+button {
+    border: none;
+    padding: 10px;
+    cursor: pointer;
+}
+
+button.mark-item {
+    background-color: #007bff;
+    color: #ffffff;
+}
+
+button.mark-item:hover {
+    background-color: #0056b3;
+}
+
+button.deliver-item {
+    background-color: #28a745;
+    color: #ffffff;
+}
+
+button.deliver-item:hover {
+    background-color: #218838;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.table th, .table td {
+    border: 1px solid #dee2e6;
+    padding: 10px;
+    text-align: left;
+    background-color: #ffffff;
+    position: relative;
+}
+
+.table th {
+    background-color: #e9ecef;
+}
+
+.thead-dark th {
+    color: #ffffff;
+    background-color: #343a40;
+}
+
+.form-check-input {
+    margin: 0;
+}
+
+.checkbox-center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}

@@ -1,0 +1,13 @@
+fastapi
+sqlalchemy
+alembic
+asyncpg
+greenlet
+pyjwt
+python-dotenv
+pandas
+openpyxl
+aiofiles
+jinja2
+passlib
+gunicorn

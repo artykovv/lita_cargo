@@ -1,0 +1,78 @@
+{% extends "base.html" %} {% block content %}
+<section class="container rounded text-body-emphasis bg-white shadow-sm p-5">
+  <form method="get" action="/reports">
+    <h5>Получить отчет</h5>
+    <p class="mt-5">Выберите перод от и до</p>
+
+    <div class="">
+      <div>
+        <label for="start_date">Начальная дата:</label>
+        <input
+          type="date"
+          id="start_date"
+          class="input-group-text"
+          name="start_date"
+          value="{{ start_date or '' }}"
+          required
+        />
+      </div>
+      <div>
+        <label for="end_date">Конечная дата:</label>
+        <input
+          type="date"
+          id="end_date"
+          class="input-group-text"
+          name="end_date"
+          value="{{ end_date or '' }}"
+          required
+        />
+      </div>
+      <div>
+        <button class="btn btn-primary mt-5" type="submit">
+          Получить отчет
+        </button>
+      </div>
+    </div>
+  </form>
+
+  <div>
+    {% if report_data %}
+    <div class="container rounded text-body-emphasis bg-white p-5 mt-5">
+      <p>
+        Период:
+        <strong>{{ start_date }}</strong>
+        -
+        <strong>{{ end_date }}</strong>
+      </p>
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">ID Клиента</th>
+            <th scope="col">Имя</th>
+            <th scope="col">Общая сумма</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for client in report_data %} {% if client.client_id %}
+          <tr>
+            <td>{{ client.client_id }}</td>
+            <td>{{ client.name }}</td>
+            <td>{{ client.total_amount }}</td>
+          </tr>
+          {% endif %} {% endfor %}
+        </tbody>
+      </table>
+
+      <p>
+        Общая сумма всех клиентов:
+        <strong>{{ report_data[-2].total_amount_all_clients }}</strong>
+      </p>
+      <p>
+        Общее количество клиентов с продуктами:
+        <strong>{{ report_data[-1].total_clients_with_products }}</strong>
+      </p>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}
