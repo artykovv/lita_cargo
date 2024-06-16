@@ -79,6 +79,17 @@
                 &nbsp;Выдать
               </a>
             </div>
+
+            <div>
+              <a class="nav-item nav-link link-body-emphasis d-flex align-items-center link-opacity-50-hover" href="/">
+                {% if user %}
+                    {{ user.username }}
+                {% else %}
+                    Гость
+                {% endif %}
+              </a>
+            </div>
+
           </nav>
         </div>
       </div>

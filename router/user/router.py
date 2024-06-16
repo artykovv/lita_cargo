@@ -2,17 +2,20 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, insert
 from sqlalchemy.orm import joinedload
+from fastapi.security.api_key import APIKey
 
 from database import get_async_session
 from router.model import Client, Product, ProductStatus
-from router.root.shemas import CreateClients
+from router.shemas import CreateClients
+from router.api_conf import get_api_key
 
 router = APIRouter(prefix="/api/v1/routes", tags=["user"])
 
 @router.post("/register")
 async def register_client(
     query: CreateClients,
-    session: AsyncSession = Depends(get_async_session)
+    session: AsyncSession = Depends(get_async_session),
+    api_key: APIKey = Depends(get_api_key)
 ):
     # Проверяем, существует ли клиент с такими же параметрами
     existing_client = await session.execute(select(Client).filter_by(name=query.name, number=query.number, city=query.city))
@@ -37,7 +40,8 @@ async def register_client(
 @router.get("/{client_id}")
 async def get_client_with_products(
     client_id: int,
-    session: AsyncSession = Depends(get_async_session)
+    session: AsyncSession = Depends(get_async_session),
+    api_key: APIKey = Depends(get_api_key)
 ):
     # Query the client by their ID with related products
     query = select(Client).options(joinedload(Client.products)).where(Client.id == client_id)
@@ -86,7 +90,8 @@ async def get_client_with_products(
 @router.get("/get/product")
 async def get_product_on_track_code(
     code: str,
-    session: AsyncSession = Depends(get_async_session)
+    session: AsyncSession = Depends(get_async_session),
+    api_key: APIKey = Depends(get_api_key)
 ):
     query = select(Product).where(Product.product_code == code, Product.status != ProductStatus.PICKED_UP)
     result = await session.execute(query)

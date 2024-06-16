@@ -17,8 +17,7 @@ services:
     env_file:
       - .env
     container_name: app
-    command: ["api/docker/one.sh"]
     ports:
       - "9999:8000"
     depends_on:
-      - db 
+      - db

@@ -1,13 +1,15 @@
-fastapi
+fastapi[all]
 sqlalchemy
 alembic
 asyncpg
 greenlet
-pyjwt
+pyjwt[crypto]
 python-dotenv
 pandas
 openpyxl
 aiofiles
 jinja2
 passlib
+xlsxwriter
 gunicorn
+pytz

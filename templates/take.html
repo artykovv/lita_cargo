@@ -1,7 +1,5 @@
-{% extends "base.html" %}
 
-{% block content %}
-<h1>{{ title }}</h1>
+<!-- <h1>{{ title }}</h1>
 <form id="searchForm" action="/api/v1/routes/" method="get" class="mb-4">
     <div class="row">
         <div class="col-md-4">
@@ -19,26 +17,33 @@
             <input type="text" class="form-control" id="product_code" name="product_code"/>
         </div>
         <div class="col-md-4 align-self-end">
-            <button type="submit" class="btn btn-primary mt-4">Искать по трек коду</button>
+            <button type="submit" class="btn btn-primary mt-4">Искать по трек коду товара</button>
         </div>
     </div>
 </form>
 
 <div id="results">
-    <!-- Данные будут динамически добавляться сюда через JavaScript -->
+
 </div>
 
 <script>
+
+const apiKey = "{{ api_key }}";
+
 document.getElementById('searchForm').addEventListener('submit', async function(event) {
     event.preventDefault();
     const clientId = document.getElementById('client_id').value;
     const productCode = document.getElementById('product_code').value;
     let response, data;
 
+    const headers = {
+        'X-API-Key': apiKey
+    };
+
     if (clientId) {
-        response = await fetch(`/api/v1/routes/${clientId}`);
+        response = await fetch(`/api/v1/routes/${clientId}`, { headers });
     } else if (productCode) {
-        response = await fetch(`/api/v1/routes/get/product?code=${productCode}`);
+        response = await fetch(`/api/v1/routes/get/product?code=${productCode}`, { headers });
     } else {
         alert('Введите ID клиента или трек код товара');
         return;
@@ -50,12 +55,28 @@ document.getElementById('searchForm').addEventListener('submit', async function(
     if (response.ok) {
         if (clientId) {
             resultsDiv.innerHTML = `
-                <h2>Клиент: ${data.name}</h2>
-                <p>ID: ${data.id}</p>
-                <p>Номер: ${data.number}</p>
-                <p>Город: ${data.city}</p>
-                <p>Общая сумма: ${data.total_amount}</p>
-                <p>Общий вес: ${data.total_weight} кг</p>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Клиент</th>
+                            <th>LITA</th>
+                            <th>Номер</th>
+                            <th>Город</th>
+                            <th>Общая сумма</th>
+                            <th>Общий вес</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>${data.name}</td>
+                            <td>${data.id}</td>
+                            <td>${data.number}</td>
+                            <td>${data.city}</td>
+                            <td>${data.total_amount} сом</td>
+                            <td>${data.total_weight} кг</td>
+                        </tr>
+                    </tbody>
+                </table>
                 <form id="productsForm">
                     <table class="table">
                         <thead>
@@ -76,14 +97,16 @@ document.getElementById('searchForm').addEventListener('submit', async function(
                                     <td>${product.id}</td>
                                     <td>${product.product_code}</td>
                                     <td>${product.weight}</td>
-                                    <td>${product.amount}</td>
+                                    <td>${product.amount} сом</td>
                                     <td>${product.date}</td>
                                     <td>${product.status}</td>
                                 </tr>
                             `).join('') : ''}
                         </tbody>
                     </table>
-                    <button type="button" class="btn btn-primary" onclick="updateProductStatus()">Изменить статус выбранных товаров</button>
+                    <h1>${data.total_amount} сом</h1>
+                    <h1>${data.total_weight} кг</h1>
+                    <button type="button" class="btn btn-primary" onclick="updateProductStatus()">Выдать</button>
                 </form>
             `;
         } else if (productCode) {
@@ -115,8 +138,11 @@ document.getElementById('searchForm').addEventListener('submit', async function(
                                 </tr>
                             `).join('') : '<tr><td colspan="7">Товар не найден</td></tr>'}
                         </tbody>
+                        
                     </table>
-                    <button type="button" class="btn btn-primary" onclick="updateProductStatus()">Изменить статус выбранных товаров</button>
+                    <h1>${data.total_amount} сом</h1>
+                    <h1>${data.total_weight} кг</h1>
+                    <button type="button" class="btn btn-primary" onclick="updateProductStatus()">Выдать</button>
                 </form>
             `;
         }
@@ -129,42 +155,228 @@ async function updateProductStatus() {
     const formData = new FormData(document.getElementById('productsForm'));
     const productIds = Array.from(formData.getAll('product_id'));
 
-    await fetch('/api/v1/routes/update-status', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ product_ids: productIds })
-    });
+    const headers = {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey
+    };
 
-    // После обновления статусов сделаем повторный запрос на обновленные данные клиента
+    try {
+        const response = await fetch('/api/v1/routes/update-status', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ product_ids: productIds })
+        });
+
+        if (!response.ok) {
+            throw new Error('Ошибка при обновлении статуса товаров');
+        }
+
+        // После обновления статусов сделаем повторный запрос на обновленные данные клиента
+        const clientId = document.getElementById('client_id').value;
+        const productCode = document.getElementById('product_code').value;
+        let responseData;
+
+        if (clientId) {
+            const clientResponse = await fetch(`/api/v1/routes/${clientId}`, { headers });
+            responseData = await clientResponse.json();
+        } else if (productCode) {
+            const productResponse = await fetch(`/api/v1/routes/get/product?code=${productCode}`, { headers });
+            responseData = await productResponse.json();
+        }
+
+        const resultsDiv = document.getElementById('results');
+
+        if (responseData) {
+            if (clientId) {
+                resultsDiv.innerHTML = `
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Клиент</th>
+                                <th>LITA</th>
+                                <th>Номер</th>
+                                <th>Город</th>
+                                <th>Общая сумма</th>
+                                <th>Общий вес</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>${responseData.name}</td>
+                                <td>${responseData.id}</td>
+                                <td>${responseData.number}</td>
+                                <td>${responseData.city}</td>
+                                <td>${responseData.total_amount} сом</td>
+                                <td>${responseData.total_weight} кг</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <form id="productsForm">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Выбрать</th>
+                                    <th>ID</th>
+                                    <th>Код продукта</th>
+                                    <th>Вес (кг)</th>
+                                    <th>Сумма</th>
+                                    <th>Дата</th>
+                                    <th>Статус</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${responseData.products && responseData.products.length > 0 ? responseData.products.map(product => `
+                                    <tr>
+                                        <td><input type="checkbox" name="product_id" value="${product.id}" ${productIds.includes(product.id.toString()) ? 'checked' : ''}></td>
+                                        <td>${product.id}</td>
+                                        <td>${product.product_code}</td>
+                                        <td>${product.weight}</td>
+                                        <td>${product.amount}</td>
+                                        <td>${product.date}</td>
+                                        <td>${product.status}</td>
+                                    </tr>
+                                `).join('') : ''}
+                            </tbody>
+                        </table>
+                    <h1>${responseData.total_amount} сом</h1>
+                    <h1>${responseData.total_weight} кг</h1>
+                        <button type="button" class="btn btn-primary" onclick="updateProductStatus()">Изменить статус выбранных товаров</button>
+                    </form>
+                `;
+            } else if (productCode) {
+                resultsDiv.innerHTML = `
+                    <h2>Результаты поиска по трек коду</h2>
+                    <form id="productsForm">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Выбрать</th>
+                                    <th>ID</th>
+                                    <th>Код продукта</th>
+                                    <th>Вес (кг)</th>
+                                    <th>Сумма</th>
+                                    <th>Дата</th>
+                                    <th>Статус</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${responseData.length > 0 ? responseData.map(product => `
+                                    <tr>
+                                        <td><input type="checkbox" name="product_id" value="${product.id}" ${productIds.includes(product.id.toString()) ? 'checked' : ''}></td>
+                                        <td>${product.id}</td>
+                                        <td>${product.product_code}</td>
+                                        <td>${product.weight}</td>
+                                        <td>${product.amount}</td>
+                                        <td>${product.date}</td>
+                                        <td>${product.status}</td>
+                                    </tr>
+                                `).join('') : '<tr><td colspan="7">Товар не найден</td></tr>'}
+                            </tbody>
+                        </table>
+                        <h1>${responseData.total_amount} сом</h1>
+                        <h1>${responseData.total_weight} кг</h1>
+                        <button type="button" class="btn btn-primary" onclick="updateProductStatus()">Изменить статус выбранных товаров</button>
+                    </form>
+                `;
+            }
+        } else {
+            resultsDiv.innerHTML = '<p>Данные не найдены</p>';
+        }
+    } catch (error) {
+        resultsDiv.innerHTML = `<p>${error.message}</p>`;
+    }
+}
+
+</script> -->
+
+
+
+
+{% extends "base.html" %}
+
+{% block content %}
+<h1>{{ title }}</h1>
+<form id="searchForm" action="/api/v1/routes/" method="get" class="mb-4">
+    <div class="row">
+        <div class="col-md-4">
+            <label for="client_id">ID клиента:</label>
+            <input type="text" class="form-control" id="client_id" name="client_id"/>
+        </div>
+        <div class="col-md-4 align-self-end">
+            <button type="submit" class="btn btn-primary mt-4">Искать по ID клиента</button>
+        </div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-md-4">
+            <label for="product_code">Трек код товара:</label>
+            <input type="text" class="form-control" id="product_code" name="product_code"/>
+        </div>
+        <div class="col-md-4 align-self-end">
+            <button type="submit" class="btn btn-primary mt-4">Искать по трек коду товара</button>
+        </div>
+    </div>
+</form>
+
+<div id="results">
+    <!-- Данные будут динамически добавляться сюда через JavaScript -->
+</div>
+
+<script>
+const apiKey = "{{ api_key }}";
+
+document.getElementById('searchForm').addEventListener('submit', async function(event) {
+    event.preventDefault();
     const clientId = document.getElementById('client_id').value;
     const productCode = document.getElementById('product_code').value;
-    let response;
+    let response, data;
+
+    const headers = {
+        'X-API-Key': apiKey
+    };
 
     if (clientId) {
-        response = await fetch(`/api/v1/routes/${clientId}`);
+        response = await fetch(`/api/v1/routes/${clientId}`, { headers });
     } else if (productCode) {
-        response = await fetch(`/api/v1/routes/get/product?code=${productCode}`);
+        response = await fetch(`/api/v1/routes/get/product?code=${productCode}`, { headers });
+    } else {
+        alert('Введите ID клиента или трек код товара');
+        return;
     }
 
-    const data = await response.json();
+    data = await response.json();
     const resultsDiv = document.getElementById('results');
 
     if (response.ok) {
         if (clientId) {
             resultsDiv.innerHTML = `
-                <h2>Клиент: ${data.name}</h2>
-                <p>ID: ${data.id}</p>
-                <p>Номер: ${data.number}</p>
-                <p>Город: ${data.city}</p>
-                <p>Общая сумма: ${data.total_amount}</p>
-                <p>Общий вес: ${data.total_weight} кг</p>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Клиент</th>
+                            <th>LITA</th>
+                            <th>Номер</th>
+                            <th>Город</th>
+                            <th>Общая сумма</th>
+                            <th>Общий вес</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>${data.name}</td>
+                            <td>${data.id}</td>
+                            <td>${data.number}</td>
+                            <td>${data.city}</td>
+                            <td>${data.total_amount} сом</td>
+                            <td>${data.total_weight} кг</td>
+                        </tr>
+                    </tbody>
+                </table>
                 <form id="productsForm">
                     <table class="table">
                         <thead>
                             <tr>
-                                <th>Выбрать</th>
+                                <th><input type="checkbox" id="selectAll"> Выбрать</th>
                                 <th>ID</th>
                                 <th>Код продукта</th>
                                 <th>Вес (кг)</th>
@@ -176,18 +388,20 @@ async function updateProductStatus() {
                         <tbody>
                             ${data.products && data.products.length > 0 ? data.products.map(product => `
                                 <tr>
-                                    <td><input type="checkbox" name="product_id" value="${product.id}" ${productIds.includes(product.id.toString()) ? 'checked' : ''}></td>
+                                    <td><input type="checkbox" name="product_id" value="${product.id}"></td>
                                     <td>${product.id}</td>
                                     <td>${product.product_code}</td>
                                     <td>${product.weight}</td>
-                                    <td>${product.amount}</td>
+                                    <td>${product.amount} сом</td>
                                     <td>${product.date}</td>
                                     <td>${product.status}</td>
                                 </tr>
                             `).join('') : ''}
                         </tbody>
                     </table>
-                    <button type="button" class="btn btn-primary" onclick="updateProductStatus()">Изменить статус выбранных товаров</button>
+                    <h1>${data.total_amount} сом</h1>
+                    <h1>${data.total_weight} кг</h1>
+                    <button type="button" class="btn btn-primary" onclick="updateProductStatus()">Выдать</button>
                 </form>
             `;
         } else if (productCode) {
@@ -197,8 +411,8 @@ async function updateProductStatus() {
                     <table class="table">
                         <thead>
                             <tr>
-                                <th>Выбрать</th>
-                                <th>ID</th>
+                                <th><input type="checkbox" id="selectAll"> Выбрать</th>
+                                <th>Код клиента</th>
                                 <th>Код продукта</th>
                                 <th>Вес (кг)</th>
                                 <th>Сумма</th>
@@ -209,8 +423,8 @@ async function updateProductStatus() {
                         <tbody>
                             ${data.length > 0 ? data.map(product => `
                                 <tr>
-                                    <td><input type="checkbox" name="product_id" value="${product.id}" ${productIds.includes(product.id.toString()) ? 'checked' : ''}></td>
-                                    <td>${product.id}</td>
+                                    <td><input type="checkbox" name="product_id" value="${product.id}"></td>
+                                    <td>${product.client_id}</td>
                                     <td>${product.product_code}</td>
                                     <td>${product.weight}</td>
                                     <td>${product.amount}</td>
@@ -219,15 +433,168 @@ async function updateProductStatus() {
                                 </tr>
                             `).join('') : '<tr><td colspan="7">Товар не найден</td></tr>'}
                         </tbody>
+                        
                     </table>
-                    <button type="button" class="btn btn-primary" onclick="updateProductStatus()">Изменить статус выбранных товаров</button>
+                    <button type="button" class="btn btn-primary" onclick="updateProductStatus()">Выдать</button>
                 </form>
             `;
         }
+
+        // Add event listener for the Select All checkbox
+        document.getElementById('selectAll').addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('input[name="product_id"]');
+            for (const checkbox of checkboxes) {
+                checkbox.checked = this.checked;
+            }
+        });
     } else {
         resultsDiv.innerHTML = `<p>${data.detail}</p>`;
     }
+});
+
+async function updateProductStatus() {
+    const formData = new FormData(document.getElementById('productsForm'));
+    const productIds = Array.from(formData.getAll('product_id'));
+
+    const headers = {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey
+    };
+
+    try {
+        const response = await fetch('/api/v1/routes/update-status', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ product_ids: productIds })
+        });
+
+        if (!response.ok) {
+            throw new Error('Ошибка при обновлении статуса товаров');
+        }
+
+        // После обновления статусов сделаем повторный запрос на обновленные данные клиента
+        const clientId = document.getElementById('client_id').value;
+        const productCode = document.getElementById('product_code').value;
+        let responseData;
+
+        if (clientId) {
+            const clientResponse = await fetch(`/api/v1/routes/${clientId}`, { headers });
+            responseData = await clientResponse.json();
+        } else if (productCode) {
+            const productResponse = await fetch(`/api/v1/routes/get/product?code=${productCode}`, { headers });
+            responseData = await productResponse.json();
+        }
+
+        const resultsDiv = document.getElementById('results');
+
+        if (responseData) {
+            if (clientId) {
+                resultsDiv.innerHTML = `
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Клиент</th>
+                                <th>LITA</th>
+                                <th>Номер</th>
+                                <th>Город</th>
+                                <th>Общая сумма</th>
+                                <th>Общий вес</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>${responseData.name}</td>
+                                <td>${responseData.id}</td>
+                                <td>${responseData.number}</td>
+                                <td>${responseData.city}</td>
+                                <td>${responseData.total_amount} сом</td>
+                                <td>${responseData.total_weight} кг</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <form id="productsForm">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" id="selectAll"> Выбрать</th>
+                                    <th>ID</th>
+                                    <th>Код продукта</th>
+                                    <th>Вес (кг)</th>
+                                    <th>Сумма</th>
+                                    <th>Дата</th>
+                                    <th>Статус</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                                                ${responseData.products && responseData.products.length > 0 ? responseData.products.map(product => `
+                                    <tr>
+                                        <td><input type="checkbox" name="product_id" value="${product.id}" ${productIds.includes(product.id.toString()) ? 'checked' : ''}></td>
+                                        <td>${product.id}</td>
+                                        <td>${product.product_code}</td>
+                                        <td>${product.weight}</td>
+                                        <td>${product.amount}</td>
+                                        <td>${product.date}</td>
+                                        <td>${product.status}</td>
+                                    </tr>
+                                `).join('') : ''}
+                            </tbody>
+                        </table>
+                        <button type="button" class="btn btn-primary" onclick="updateProductStatus()">Изменить статус выбранных товаров</button>
+                    </form>
+                `;
+            } else if (productCode) {
+                resultsDiv.innerHTML = `
+                    <h2>Результаты поиска по трек коду</h2>
+                    <form id="productsForm">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" id="selectAll"> Выбрать</th>
+                                    <th>ID</th>
+                                    <th>Код продукта</th>
+                                    <th>Вес (кг)</th>
+                                    <th>Сумма</th>
+                                    <th>Дата</th>
+                                    <th>Статус</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${responseData.length > 0 ? responseData.map(product => `
+                                    <tr>
+                                        <td><input type="checkbox" name="product_id" value="${product.id}" ${productIds.includes(product.id.toString()) ? 'checked' : ''}></td>
+                                        <td>${product.id}</td>
+                                        <td>${product.product_code}</td>
+                                        <td>${product.weight}</td>
+                                        <td>${product.amount}</td>
+                                        <td>${product.date}</td>
+                                        <td>${product.status}</td>
+                                    </tr>
+                                `).join('') : '<tr><td colspan="7">Товар не найден</td></tr>'}
+                            </tbody>
+                        </table>
+                        <h1>${responseData.total_amount} сом</h1>
+                        <h1>${responseData.total_weight} кг</h1>
+                        <button type="button" class="btn btn-primary" onclick="updateProductStatus()">Изменить статус выбранных товаров</button>
+                    </form>
+                `;
+            }
+
+            // Add event listener for the Select All checkbox
+            document.getElementById('selectAll').addEventListener('change', function() {
+                const checkboxes = document.querySelectorAll('input[name="product_id"]');
+                for (const checkbox of checkboxes) {
+                    checkbox.checked = this.checked;
+                }
+            });
+        } else {
+            resultsDiv.innerHTML = '<p>Данные не найдены</p>';
+        }
+    } catch (error) {
+        resultsDiv.innerHTML = `<p>${error.message}</p>`;
+    }
 }
+
 </script>
 
 {% endblock %}
+

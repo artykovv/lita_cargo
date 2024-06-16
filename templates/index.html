@@ -1,9 +1,8 @@
-{% extends "base.html" %} {% block content %}
-
+{% extends "base.html" %} 
+{% block content %}
 
 <div class="">
     <div class="p-4 p-md-5 mb-4 rounded text-body-emphasis bg-white shadow-sm">
-
         <span class="text-bg-success rounded-pill p-2 fs-6">Отчет за сегодня</span>
         <div>
             <div id="report" class="d-flex justify-content-around"></div>
@@ -14,36 +13,80 @@
     </div>
 
     <div>
-        <div class="row row-cols-1 row-cols-md-3 mb-3 text-center">
-            <div class="col">
-                <div class="card-body bg-white rounded shadow-sm">
-                    <p class="pt-5">количество клиентов</p>
+        <div class="row g-5 text-center">
+            <div class="col-md-4">
+                <div class="card-body bg-white rounded shadow-sm p-5">
+                    <p class="">Количество клиентов</p>
                     <h1 id="clients-count" class="card-title pricing-card-title" style="font-size: 100px;"><small class="text-body-secondary fw-light"></small></h1>
-                    <div class="pb-5 mt-1">
-                        <a href="/registration" class="btn btn-primary">Регистрация</a>
+                    <div class="mt-5">
+                        <p>Скачать базу клиентов</p>
+                        <a href="/api/routes/clients/download" id="downloadLink" class="btn btn-primary">Скачать</a>
                     </div>
                 </div>
-              </div>
-
-              <div class="col">
-                <div class="card-body bg-white rounded">
-                    <p class="mt-5">количество клиентов</p>
-                    <h1 id="clients-count" class="card-title pricing-card-title mb-5">100<small class="text-body-secondary fw-light"></small></h1>
-                </div>
-              </div>
-
             </div>
-          </div>
+
+            <div class="col-md-8 rounded text-body-emphasis bg-white shadow-sm">
+                <div class="card-body bg-white rounded p-5">
+                    <p class="">Поиск клиентов</p>
+                    <div class="col d-flex justify-content-evenly align-items-center">
+                        <label for="client_id">ID клиента:</label>
+                        <input style="width: 300px;" type="text" class="form-control shadow-sm" id="client_id" name="client_id"/>
+                        <button type="submit" class="btn btn-primary" onclick="searchClient()">Поиск</button>
+                    </div>
+                    <div id="client-info" class="mt-4"></div>
+
+                    <div class="mt-5">
+                        <a href="/registration" class="btn btn-success">+ Новый Клиент</a>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
 <script>
+
+    const apiKey = "{{ api_key }}";
+
+document.getElementById('downloadLink').addEventListener('click', async (event) => {
+    event.preventDefault();  // Предотвращаем стандартное действие перехода по ссылке
+
+    try {
+        const response = await fetch('/api/routes/clients/download', {
+            headers: {
+                'X-API-Key': apiKey
+            }
+        });
+
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = 'clients.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+        } else {
+            const error = await response.json();
+            console.error('Ошибка скачивания файла:', error.detail);
+            // Возможно, здесь нужно показать сообщение об ошибке пользователю
+        }
+    } catch (error) {
+        console.error('Ошибка сети:', error.message);
+        // Возможно, здесь нужно показать сообщение об ошибке пользователю
+    }
+});
+
+
     async function fetchDailyReport() {
         try {
             const response = await fetch('/api/routes/report/today', {
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-API-Key': apiKey
                 }
             });
 
@@ -64,7 +107,8 @@
             const response = await fetch('/api/routes/report/clients/count', {
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-API-Key': apiKey
                 }
             });
 
@@ -76,6 +120,29 @@
             }
         } catch (error) {
             document.getElementById('clients-count').textContent = 'Ошибка';
+        }
+    }
+
+    async function searchClient() {
+        const clientId = document.getElementById('client_id').value;
+        try {
+            const response = await fetch(`/api/routes/gettt?client_id=${clientId}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': apiKey
+                }
+            });
+
+            if (response.ok) {
+                const client = await response.json();
+                displayClientInfo(client);
+            } else {
+                const error = await response.json();
+                document.getElementById('client-info').innerHTML = `<p>Ошибка: ${error.detail}</p>`;
+            }
+        } catch (error) {
+            document.getElementById('client-info').innerHTML = `<p>Ошибка: ${error.message}</p>`;
         }
     }
 
@@ -104,10 +171,40 @@
         document.getElementById('report').innerHTML = reportHtml;
     }
 
+    function displayClientInfo(client) {
+        let clientHtml = `
+            <table class="table table-striped mt-4">
+
+                <tbody>
+                    <tr>
+                        <td>LITA</td>
+                        <td>${client.id}</td>
+                    </tr>
+                    <tr>
+                        <td>ФИО</td>
+                        <td>${client.name}</td>
+
+                    </tr>
+                    <tr>
+                        <td>Номер</td>
+                        <td>${client.number}</td>
+
+                    </tr>
+                    <tr>
+                        <td>Город</td>
+                        <td>${client.city}</td>
+                    </tr>
+                </tbody>
+            </table>`;
+        document.getElementById('client-info').innerHTML = clientHtml;
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         fetchDailyReport();
         fetchClientsCount();
     });
 </script>
-  {% endblock %}
-</div>
+
+
+
+{% endblock %}

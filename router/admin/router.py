@@ -1,19 +1,24 @@
-from fastapi import APIRouter, Depends, Response, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.security import HTTPBasic
 from database import get_async_session
-from sqlalchemy import select, insert
+from sqlalchemy import insert
+from fastapi.security.api_key import APIKey 
 
-from router.admin.shemas import CreateAdmin
-from router.admin.function import hash_password, authenticate
+from router.shemas import CreateAdmin
+from functions import hash_password
 from router.model import User
+from router.api_conf import get_api_key
 
 security = HTTPBasic()
 
 router = APIRouter(prefix="/api/v1/routes", tags=["admin"])
 
 @router.post("/register/admin")
-async def register_admin(admin_create: CreateAdmin, session: AsyncSession = Depends(get_async_session)):
+async def register_admin(admin_create: CreateAdmin, 
+                        session: AsyncSession = Depends(get_async_session), 
+                        api_key: APIKey = Depends(get_api_key)
+                        ):
     hash_pass = await hash_password(admin_create.password)
     admin_create.password = hash_pass
     stmt = insert(User).values(admin_create.dict())
@@ -21,11 +26,3 @@ async def register_admin(admin_create: CreateAdmin, session: AsyncSession = Depe
     await session.commit()
     return {"detail": "status success"}
 
-@router.post("/login")
-async def login_admin(
-    credentials: HTTPBasicCredentials = Depends(security),
-    session: AsyncSession = Depends(get_async_session)):
-    user = await authenticate(credentials, session)
-    if not user:
-        return {"message": "User not found"}
-    return {"message": "Successful login"}

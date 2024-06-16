@@ -1,33 +1,41 @@
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, insert, update, func
-from sqlalchemy.orm import joinedload
+from sqlalchemy import select, update, func
 import pandas as pd
 from io import BytesIO
 import logging
 from datetime import datetime
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import StreamingResponse
+from fastapi.security.api_key import APIKey 
+from router.api_conf import get_api_key
 
 from database import get_async_session
 from router.model import Client, ProductStatus, Product
-
-
+import pytz
 
 router = APIRouter(prefix="/api/routes", tags=["root"])
+logger = logging.getLogger(__name__)
+
     
 
 @router.get("/gettt")
-async def get( client_id: int, session: AsyncSession = Depends(get_async_session)):
+async def get(
+    client_id: int, 
+    session: AsyncSession = Depends(get_async_session),
+    api_key: APIKey = Depends(get_api_key)
+    ):
     query = select(Client).where(Client.id == client_id)
     result = await session.execute(query)
     route = result.scalars().first()
     return route
 
-logger = logging.getLogger(__name__)
-
-
 @router.post("/register/users/all")
-async def create_all_users(file: UploadFile = File(...), session: AsyncSession = Depends(get_async_session)):
+async def create_all_users(
+    file: UploadFile = File(...), 
+    session: AsyncSession = Depends(get_async_session),
+    api_key: APIKey = Depends(get_api_key)
+    ):
+
     if not file.filename.endswith('.xlsx'):
         raise HTTPException(status_code=400, detail="Invalid file type")
 
@@ -95,9 +103,12 @@ async def create_all_users(file: UploadFile = File(...), session: AsyncSession =
 
     return {"status": "success", "inserted": len(clients_to_insert), "updated": len(clients_to_update)}
 
-
 @router.post("/register/products")
-async def create_all_products(file: UploadFile = File(...), session: AsyncSession = Depends(get_async_session)):
+async def create_all_products(
+    file: UploadFile = File(...), session: 
+    AsyncSession = Depends(get_async_session),
+    api_key: APIKey = Depends(get_api_key)
+    ):
     if not file.filename.endswith('.xlsx'):
         raise HTTPException(status_code=400, detail="Invalid file type")
 
@@ -128,7 +139,7 @@ async def create_all_products(file: UploadFile = File(...), session: AsyncSessio
         client_id = row.get("client_id") if pd.notna(row.get("client_id")) else None
         weight = row.get("weight") if "weight" in row else None
         amount = row.get("amount") if "amount" in row else None
-        date = row.get("date") if "date" in row else datetime.utcnow()  # Set current date if not provided
+        date = row.get("date") if "date" in row else datetime.now(pytz.timezone('Asia/Bishkek'))  # Set current date if not provided
         status = ProductStatus.IN_TRANSIT  # Установите начальный статус "в пути"
 
         product = Product(
@@ -152,11 +163,11 @@ async def create_all_products(file: UploadFile = File(...), session: AsyncSessio
 
     return {"status": "Успешно !", "inserted": len(products_to_insert)}
 
-
 @router.put("/update/products")
 async def update_products(
     file: UploadFile = File(...),
-    session: AsyncSession = Depends(get_async_session)
+    session: AsyncSession = Depends(get_async_session),
+    api_key: APIKey = Depends(get_api_key)
 ):
     try:
         contents = await file.read()
@@ -179,7 +190,7 @@ async def update_products(
                 "weight": weight,
                 "amount": amount,
                 "status": ProductStatus.IN_WAREHOUSE,  # Установите статус "на складе"
-                "date": datetime.utcnow(),  # current date
+                "date": datetime.now(pytz.timezone('Asia/Bishkek')), 
                 "client_id": client_id
             })
         )
@@ -190,12 +201,11 @@ async def update_products(
     
     return {"status": "Товары обновлены"}
 
-
-
 @router.put("/update/products/taken")
 async def update_products(
     file: UploadFile = File(...),
-    session: AsyncSession = Depends(get_async_session)
+    session: AsyncSession = Depends(get_async_session),
+    api_key: APIKey = Depends(get_api_key)
 ):
     # Чтение данных из загруженного файла Excel
     df = pd.read_excel(file.file)
@@ -224,7 +234,10 @@ async def update_products(
     return {"status": "Товары обнолены"}
 
 @router.get("/report/today")
-async def get_daily_report(session: AsyncSession = Depends(get_async_session)):
+async def get_daily_report(
+    session: AsyncSession = Depends(get_async_session),
+    api_key: APIKey = Depends(get_api_key)
+    ):
     # Запрос списка клиентов без подгрузки их продуктов
     query = select(Client)
     result = await session.execute(query)
@@ -281,73 +294,13 @@ async def get_daily_report(session: AsyncSession = Depends(get_async_session)):
 
     return daily_report
 
-@router.get("/report/day")
-async def get_daily_report(date: str, session: AsyncSession = Depends(get_async_session)):
-    # Преобразуем строку даты в объект datetime
-    try:
-        selected_date = datetime.fromisoformat(date)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid date format. Please use ISO format.")
-
-    # Запрос списка клиентов без подгрузки их продуктов
-    query = select(Client)
-    result = await session.execute(query)
-    clients = result.scalars().all()
-
-    if not clients:
-        raise HTTPException(status_code=404, detail="No clients found")
-
-    # Создание словаря для хранения отчета за день
-    daily_report = []
-
-    total_amount_all_clients = 0  # Инициализация переменной для общей суммы всех клиентов
-    total_clients_with_products = 0  # Инициализация переменной для общего количества клиентов с продуктами
-
-    for client in clients:
-        # Проверка наличия продукта со статусом "PICKED_UP" у клиента за выбранный день
-        product_query = select(Product).where(
-            Product.client_id == client.id,
-            Product.date == selected_date,
-            Product.status == ProductStatus.PICKED_UP
-        )
-        has_picked_up_product = await session.execute(product_query)
-        has_picked_up_product = has_picked_up_product.scalars().first()
-
-        # Если у клиента нет продукта со статусом "PICKED_UP" за выбранный день, пропускаем его
-        if not has_picked_up_product:
-            continue
-
-        total_clients_with_products += 1  # Увеличиваем счетчик клиентов с продуктами
-
-        # Вычисление общей суммы amount всех продуктов клиента со статусом "PICKED_UP" за выбранный день
-        total_amount_query = select(func.sum(Product.amount)).where(
-            Product.client_id == client.id,
-            Product.date == selected_date,
-            Product.status == ProductStatus.PICKED_UP
-        )
-        total_amount_result = await session.scalar(total_amount_query)
-
-        total_amount_all_clients += total_amount_result or 0  # Суммирование total_amount каждого клиента
-
-        # Добавление данных клиента в отчет за день
-        client_data = {
-            "client_id": client.id,
-            "name": client.name,
-            "total_amount": total_amount_result or 0  # Если сумма равна None, присваиваем 0
-        }
-
-        daily_report.append(client_data)
-
-    # Добавление общей суммы всех клиентов в отчет за день
-    daily_report.append({"total_amount_all_clients": total_amount_all_clients})
-    # Добавление общего количества клиентов с продуктами в отчет за день
-    daily_report.append({"total_clients_with_products": total_clients_with_products})
-
-    return daily_report
-
-
 @router.get("/report/date")
-async def get_monthly_report(start_date: str, end_date: str, session: AsyncSession = Depends(get_async_session)):
+async def get_monthly_report(
+    start_date: str, 
+    end_date: str, 
+    session: AsyncSession = Depends(get_async_session), 
+    api_key: APIKey = Depends(get_api_key)
+    ):
     try:
         start_date = datetime.fromisoformat(start_date)
         end_date = datetime.fromisoformat(end_date)
@@ -402,7 +355,50 @@ async def get_monthly_report(start_date: str, end_date: str, session: AsyncSessi
     return monthly_report
 
 @router.get("/report/clients/count")
-async def get_clients_count(session: AsyncSession = Depends(get_async_session)):
+async def get_clients_count(
+    session: AsyncSession = Depends(get_async_session), 
+    api_key: APIKey = Depends(get_api_key)
+    ):
+
     query = select(func.count(Client.id))
     result = await session.scalar(query)
     return {"total_clients": result}
+
+@router.get("/clients/download", response_class=StreamingResponse)
+async def download_clients(
+    session: AsyncSession = Depends(get_async_session),
+    api_key: APIKey = Depends(get_api_key)
+
+    ):
+    query = select(Client)
+    result = await session.execute(query)
+    clients = result.scalars().all()
+
+    if not clients:
+        raise HTTPException(status_code=404, detail="No clients found")
+
+    data = []
+    for client in clients:
+        data.append({
+            "ID": client.id,
+            "Name": client.name,
+            "Number": client.number,
+            "City": client.city
+        })
+
+    df = pd.DataFrame(data)
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Clients')
+        writer.close()  # Correctly close the writer to save the file
+    output.seek(0)
+
+    # Get current date and format it
+    current_date = datetime.now().strftime("%Y-%m-%d")
+    filename = f"clients_{current_date}.xlsx"
+
+    return StreamingResponse(
+        output,
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )

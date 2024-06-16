@@ -29,8 +29,6 @@ class User(Base):
    role_id = Column(Integer, ForeignKey('role.id'), default=1)
    role = relationship("Role", backref="users", primaryjoin="User.role_id == Role.id")
 
-
-
 class Client(Base):
     __tablename__ = "clients"
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -49,12 +47,3 @@ class Product(Base):
     status = Column(Enum(ProductStatus), nullable=False)
     client_id = Column(Integer, ForeignKey('clients.id'), nullable=True)
     client = relationship("Client", back_populates="products")
-
-    def set_status_based_on_attributes(self):
-        if self.weight is not None and self.amount is not None:
-            self.status = ProductStatus.IN_WAREHOUSE
-        else:
-            self.status = ProductStatus.IN_TRANSIT
-
-    def mark_as_picked_up(self):
-        self.status = ProductStatus.PICKED_UP

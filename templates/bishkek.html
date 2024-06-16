@@ -30,6 +30,9 @@
 </div>
 
   <script>
+    
+    const apiKey = "{{ api_key }}";
+
     document.getElementById('uploadForm').addEventListener('submit', async (event) => {
       event.preventDefault();
       const form = event.target;
@@ -38,6 +41,9 @@
       try {
         const response = await fetch('/api/routes/update/products', {
           method: 'PUT',
+          headers: {
+              'X-API-Key': apiKey
+            },
           body: formData
         });
 
