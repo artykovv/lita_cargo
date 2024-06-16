@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, func
+from sqlalchemy import select, update, func, exists, and_
 import pandas as pd
 from io import BytesIO
 import logging
@@ -8,6 +8,7 @@ from datetime import datetime
 from fastapi.responses import StreamingResponse
 from fastapi.security.api_key import APIKey 
 from router.api_conf import get_api_key
+from sqlalchemy.orm import joinedload
 
 from database import get_async_session
 from router.model import Client, ProductStatus, Product
@@ -238,6 +239,10 @@ async def get_daily_report(
     session: AsyncSession = Depends(get_async_session),
     api_key: APIKey = Depends(get_api_key)
     ):
+
+    tz_bishkek = pytz.timezone('Asia/Bishkek')
+    current_date = datetime.now(tz_bishkek).date()
+
     # Запрос списка клиентов без подгрузки их продуктов
     query = select(Client)
     result = await session.execute(query)
@@ -256,7 +261,7 @@ async def get_daily_report(
         # Проверка наличия продукта со статусом "PICKED_UP" у клиента за текущий день
         product_query = select(Product).where(
             Product.client_id == client.id,
-            Product.date == func.current_date(),
+            Product.date == current_date,
             Product.status == ProductStatus.PICKED_UP
         )
         has_picked_up_product = await session.execute(product_query)
@@ -271,7 +276,7 @@ async def get_daily_report(
         # Вычисление общей суммы amount всех продуктов клиента со статусом "PICKED_UP" за текущий день
         total_amount_query = select(func.sum(Product.amount)).where(
             Product.client_id == client.id,
-            Product.date == func.current_date(),
+            Product.date == current_date,
             Product.status == ProductStatus.PICKED_UP
         )
         total_amount_result = await session.scalar(total_amount_query)

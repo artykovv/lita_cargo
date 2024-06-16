@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Depends, HTTPException, Form, Query
+from fastapi import FastAPI, Request, Depends, HTTPException, Form, Query, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -42,8 +42,8 @@ async def read_item(
     user = Depends(get_user_from_token)
     ):
 
-    if not user:
-        return RedirectResponse(url="/login")
+    # if not user:
+    #     return RedirectResponse(url="/login")
     
     query = select(Product)
     result = await session.execute(query)
@@ -65,8 +65,8 @@ async def read_item(
 # register
 @app.get("/registration", response_class=HTMLResponse)
 async def register_client_form(request: Request, user = Depends(get_user_from_token)):
-    if not user:
-        return RedirectResponse(url="/login")
+    # if not user:
+    #     return RedirectResponse(url="/login")
     return templates.TemplateResponse("register.html", {
         "request": request, 
         "title": "Регистрация клиента", 
@@ -83,8 +83,8 @@ async def show_reports(
     session: AsyncSession = Depends(get_async_session), 
     user = Depends(get_user_from_token)
     ):
-    if not user:
-        return RedirectResponse(url="/login")
+    # if not user:
+    #     return RedirectResponse(url="/login")
     
     report_data = []
     if start_date and end_date:
@@ -105,8 +105,8 @@ async def china_upload_form(
     request: Request, 
     user = Depends(get_user_from_token)
     ):
-    if not user:
-        return RedirectResponse(url="/login")
+    # if not user:
+    #     return RedirectResponse(url="/login")
     return templates.TemplateResponse("china.html", {
         "request": request, 
         "title": "Китай",
@@ -121,8 +121,8 @@ async def bishkek_upload_form(
     user = Depends(get_user_from_token)
     ):
 
-    if not user:
-        return RedirectResponse(url="/login")
+    # if not user:
+    #     return RedirectResponse(url="/login")
     return templates.TemplateResponse(
         "bishkek.html", {
             "request": request, 
@@ -138,8 +138,8 @@ async def take_products(
     user = Depends(get_user_from_token)
     ):
 
-    if not user:
-        return RedirectResponse(url="/login")
+    # if not user:
+    #     return RedirectResponse(url="/login")
     return templates.TemplateResponse(
         "take.html", {
             "request": request, 
@@ -179,20 +179,23 @@ async def custom_http_exception_handler(request: Request, exc: StarletteHTTPExce
         return templates.TemplateResponse("404.html", {"request": request}, status_code=HTTP_404_NOT_FOUND)
     return HTMLResponse(str(exc.detail), status_code=exc.status_code)
 
-@app.get("/login", response_class=HTMLResponse)
-async def get_login_form(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+# @app.get("/login", response_class=HTMLResponse)
+# async def get_login_form(request: Request):
+#     return templates.TemplateResponse("login.html", {"request": request})
 
-@app.post("/login", response_class=HTMLResponse)
-async def login(username: str = Form(...), password: str = Form(...), session: AsyncSession = Depends(get_async_session)):
-    user = await authenticate_user(username, password, session)
-    access_token = await generate_access_token(user)
-    response = RedirectResponse(url="/", status_code=303)
-    response.set_cookie(key="token", value=access_token, httponly=True, secure=True, max_age=43200)
-    return response
+# @app.post("/login", response_class=HTMLResponse)
+# async def login(username: str = Form(...), password: str = Form(...), session: AsyncSession = Depends(get_async_session)):
+#     user = await authenticate_user(username, password, session)
+#     if user is None:
+#         # Handle case where authentication fails
+#         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect username or password")
+#     access_token = await generate_access_token(user)
+#     response = RedirectResponse(url="/", status_code=303)
+#     response.set_cookie(key="token", value=access_token, httponly=True, secure=True, max_age=43200)
+#     return response
 
-@app.get("/logout")
-async def logout():
-    response = RedirectResponse(url="/")
-    response.delete_cookie(key="token")
-    return response
+# @app.get("/logout")
+# async def logout():
+#     response = RedirectResponse(url="/")
+#     response.delete_cookie(key="token")
+#     return response
